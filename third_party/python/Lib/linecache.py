@@ -14,10 +14,7 @@ __all__ = ["getline", "clearcache", "checkcache"]
 
 def getline(filename, lineno, module_globals=None):
     lines = getlines(filename, module_globals)
-    if 1 <= lineno <= len(lines):
-        return lines[lineno-1]
-    else:
-        return ''
+    return lines[lineno-1] if 1 <= lineno <= len(lines) else ''
 
 
 # The cache
@@ -41,8 +38,7 @@ def getlines(filename, module_globals=None):
     if filename in cache:
         entry = cache[filename]
         if len(entry) != 1:
-            return cache[filename][2]
-
+            return entry[2]
     try:
         return updatecache(filename, module_globals)
     except MemoryError:
@@ -56,11 +52,10 @@ def checkcache(filename=None):
 
     if filename is None:
         filenames = list(cache.keys())
+    elif filename in cache:
+        filenames = [filename]
     else:
-        if filename in cache:
-            filenames = [filename]
-        else:
-            return
+        return
 
     for filename in filenames:
         entry = cache[filename]
@@ -158,10 +153,7 @@ def lazycache(filename, module_globals):
         filename, and the filename must not be already cached.
     """
     if filename in cache:
-        if len(cache[filename]) == 1:
-            return True
-        else:
-            return False
+        return len(cache[filename]) == 1
     if not filename or (filename.startswith('<') and filename.endswith('>')):
         return False
     # Try for a __loader__, if available

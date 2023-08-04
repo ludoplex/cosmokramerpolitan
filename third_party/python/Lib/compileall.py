@@ -36,10 +36,7 @@ def _walk_dir(dir, ddir=None, maxlevels=10, quiet=0):
         if name == '__pycache__':
             continue
         fullname = os.path.join(dir, name)
-        if ddir is not None:
-            dfile = os.path.join(ddir, name)
-        else:
-            dfile = None
+        dfile = os.path.join(ddir, name) if ddir is not None else None
         if not os.path.isdir(fullname):
             yield fullname
         elif (maxlevels > 0 and name != os.curdir and name != os.pardir and
@@ -114,17 +111,13 @@ def compile_file(fullname, ddir=None, force=False, rx=None, quiet=0,
     if quiet < 2 and isinstance(fullname, os.PathLike):
         fullname = os.fspath(fullname)
     name = os.path.basename(fullname)
-    if ddir is not None:
-        dfile = os.path.join(ddir, name)
-    else:
-        dfile = None
+    dfile = os.path.join(ddir, name) if ddir is not None else None
     if rx is not None:
-        mo = rx.search(fullname)
-        if mo:
+        if mo := rx.search(fullname):
             return success
     if os.path.isfile(fullname):
         if legacy:
-            cfile = fullname + 'c'
+            cfile = f'{fullname}c'
         else:
             if optimize >= 0:
                 opt = optimize if optimize >= 1 else ''
@@ -172,7 +165,7 @@ def compile_file(fullname, ddir=None, force=False, rx=None, quiet=0,
                     print('*** Error compiling {!r}...'.format(fullname))
                 else:
                     print('*** ', end='')
-                print(e.__class__.__name__ + ':', e)
+                print(f'{e.__class__.__name__}:', e)
             else:
                 if ok == 0:
                     success = False
@@ -251,11 +244,7 @@ def main():
         args.rx = re.compile(args.rx)
 
 
-    if args.recursion is not None:
-        maxlevels = args.recursion
-    else:
-        maxlevels = args.maxlevels
-
+    maxlevels = args.recursion if args.recursion is not None else args.maxlevels
     # if flist is provided then load it
     if args.flist:
         try:
@@ -264,7 +253,7 @@ def main():
                     compile_dests.append(line.strip())
         except OSError:
             if args.quiet < 2:
-                print("Error reading file list {}".format(args.flist))
+                print(f"Error reading file list {args.flist}")
             return False
 
     if args.workers is not None:
@@ -272,21 +261,19 @@ def main():
 
     success = True
     try:
-        if compile_dests:
-            for dest in compile_dests:
-                if os.path.isfile(dest):
-                    if not compile_file(dest, args.ddir, args.force, args.rx,
-                                        args.quiet, args.legacy):
-                        success = False
-                else:
-                    if not compile_dir(dest, maxlevels, args.ddir,
-                                       args.force, args.rx, args.quiet,
-                                       args.legacy, workers=args.workers):
-                        success = False
-            return success
-        else:
+        if not compile_dests:
             return compile_path(legacy=args.legacy, force=args.force,
                                 quiet=args.quiet)
+        for dest in compile_dests:
+            if os.path.isfile(dest):
+                if not compile_file(dest, args.ddir, args.force, args.rx,
+                                    args.quiet, args.legacy):
+                    success = False
+            elif not compile_dir(dest, maxlevels, args.ddir,
+                                       args.force, args.rx, args.quiet,
+                                       args.legacy, workers=args.workers):
+                success = False
+        return success
     except KeyboardInterrupt:
         if args.quiet < 2:
             print("\n[interrupted]")

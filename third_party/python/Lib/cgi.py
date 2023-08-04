@@ -84,10 +84,7 @@ def initlog(*allargs):
             logfp = open(logfile, "a")
         except OSError:
             pass
-    if not logfp:
-        log = nolog
-    else:
-        log = dolog
+    log = nolog if not logfp else dolog
     log(*allargs)
 
 def dolog(fmt, *args):
@@ -146,16 +143,12 @@ def parse(fp=None, environ=os.environ, keep_blank_values=0,
 
     # field keys and values (except for files) are returned as strings
     # an encoding is required to decode the bytes read from self.fp
-    if hasattr(fp,'encoding'):
-        encoding = fp.encoding
-    else:
-        encoding = 'latin-1'
-
+    encoding = fp.encoding if hasattr(fp,'encoding') else 'latin-1'
     # fp.read() must return bytes
     if isinstance(fp, TextIOWrapper):
         fp = fp.buffer
 
-    if not 'REQUEST_METHOD' in environ:
+    if 'REQUEST_METHOD' not in environ:
         environ['REQUEST_METHOD'] = 'GET'       # For testing stand-alone
     if environ['REQUEST_METHOD'] == 'POST':
         ctype, pdict = parse_header(environ['CONTENT_TYPE'])
@@ -169,19 +162,18 @@ def parse(fp=None, environ=os.environ, keep_blank_values=0,
         else:
             qs = ''                     # Unknown content-type
         if 'QUERY_STRING' in environ:
-            if qs: qs = qs + '&'
+            if qs:
+                qs = f'{qs}&'
             qs = qs + environ['QUERY_STRING']
         elif sys.argv[1:]:
-            if qs: qs = qs + '&'
+            if qs:
+                qs = f'{qs}&'
             qs = qs + sys.argv[1]
         environ['QUERY_STRING'] = qs    # XXX Shouldn't, really
     elif 'QUERY_STRING' in environ:
         qs = environ['QUERY_STRING']
     else:
-        if sys.argv[1:]:
-            qs = sys.argv[1]
-        else:
-            qs = ""
+        qs = sys.argv[1] if sys.argv[1:] else ""
         environ['QUERY_STRING'] = qs    # XXX Shouldn't, really
     return urllib.parse.parse_qs(qs, keep_blank_values, strict_parsing,
                                  encoding=encoding, separator=separator)
@@ -229,9 +221,7 @@ def parse_multipart(fp, pdict):
     """
     import http.client
 
-    boundary = b""
-    if 'boundary' in pdict:
-        boundary = pdict['boundary']
+    boundary = pdict['boundary'] if 'boundary' in pdict else b""
     if not valid_boundary(boundary):
         raise ValueError('Invalid boundary in multipart form: %r'
                             % (boundary,))
@@ -247,8 +237,7 @@ def parse_multipart(fp, pdict):
         if terminator:
             # At start of next part.  Read headers first.
             headers = http.client.parse_headers(fp)
-            clength = headers.get('content-length')
-            if clength:
+            if clength := headers.get('content-length'):
                 try:
                     bytes = int(clength)
                 except ValueError:
@@ -320,7 +309,7 @@ def parse_header(line):
     Return the main content-type and a dictionary of options.
 
     """
-    parts = _parseparam(';' + line)
+    parts = _parseparam(f';{line}')
     key = parts.__next__()
     pdict = {}
     for p in parts:
@@ -461,7 +450,7 @@ class FieldStorage:
         if 'REQUEST_METHOD' in environ:
             method = environ['REQUEST_METHOD'].upper()
         self.qs_on_post = None
-        if method == 'GET' or method == 'HEAD':
+        if method in ['GET', 'HEAD']:
             if 'QUERY_STRING' in environ:
                 qs = environ['QUERY_STRING']
             elif sys.argv[1:]:
@@ -484,27 +473,26 @@ class FieldStorage:
                 self.qs_on_post = environ['QUERY_STRING']
             if 'CONTENT_LENGTH' in environ:
                 headers['content-length'] = environ['CONTENT_LENGTH']
-        else:
-            if not (isinstance(headers, (Mapping, Message))):
-                raise TypeError("headers must be mapping or an instance of "
-                                "email.message.Message")
+        elif not (isinstance(headers, (Mapping, Message))):
+            raise TypeError("headers must be mapping or an instance of "
+                            "email.message.Message")
         self.headers = headers
         if fp is None:
             self.fp = sys.stdin.buffer
-        # self.fp.read() must return bytes
         elif isinstance(fp, TextIOWrapper):
             self.fp = fp.buffer
-        else:
-            if not (hasattr(fp, 'read') and hasattr(fp, 'readline')):
-                raise TypeError("fp must be file pointer")
+        elif hasattr(fp, 'read') and hasattr(fp, 'readline'):
             self.fp = fp
 
+        else:
+            raise TypeError("fp must be file pointer")
         self.encoding = encoding
         self.errors = errors
 
         if not isinstance(outerboundary, bytes):
-            raise TypeError('outerboundary must be bytes, not %s'
-                            % type(outerboundary).__name__)
+            raise TypeError(
+                f'outerboundary must be bytes, not {type(outerboundary).__name__}'
+            )
         self.outerboundary = outerboundary
 
         self.bytes_read = 0
@@ -607,54 +595,37 @@ class FieldStorage:
         """Dictionary style indexing."""
         if self.list is None:
             raise TypeError("not indexable")
-        found = []
-        for item in self.list:
-            if item.name == key: found.append(item)
-        if not found:
-            raise KeyError(key)
-        if len(found) == 1:
-            return found[0]
+        if found := [item for item in self.list if item.name == key]:
+            return found[0] if len(found) == 1 else found
         else:
-            return found
+            raise KeyError(key)
 
     def getvalue(self, key, default=None):
         """Dictionary style get() method, including 'value' lookup."""
-        if key in self:
-            value = self[key]
-            if isinstance(value, list):
-                return [x.value for x in value]
-            else:
-                return value.value
-        else:
+        if key not in self:
             return default
+        value = self[key]
+        return [x.value for x in value] if isinstance(value, list) else value.value
 
     def getfirst(self, key, default=None):
         """ Return the first value received."""
-        if key in self:
-            value = self[key]
-            if isinstance(value, list):
-                return value[0].value
-            else:
-                return value.value
-        else:
+        if key not in self:
             return default
+        value = self[key]
+        return value[0].value if isinstance(value, list) else value.value
 
     def getlist(self, key):
         """ Return list of received values."""
-        if key in self:
-            value = self[key]
-            if isinstance(value, list):
-                return [x.value for x in value]
-            else:
-                return [value.value]
-        else:
+        if key not in self:
             return []
+        value = self[key]
+        return [x.value for x in value] if isinstance(value, list) else [value.value]
 
     def keys(self):
         """Dictionary style keys() method."""
         if self.list is None:
             raise TypeError("not indexable")
-        return list(set(item.name for item in self.list))
+        return list({item.name for item in self.list})
 
     def __contains__(self, key):
         """Dictionary style __contains__ method."""
@@ -675,11 +646,10 @@ class FieldStorage:
         """Internal: read data in query string format."""
         qs = self.fp.read(self.length)
         if not isinstance(qs, bytes):
-            raise ValueError("%s should return bytes, got %s" \
-                             % (self.fp, type(qs).__name__))
+            raise ValueError(f"{self.fp} should return bytes, got {type(qs).__name__}")
         qs = qs.decode(self.encoding, self.errors)
         if self.qs_on_post:
-            qs += '&' + self.qs_on_post
+            qs += f'&{self.qs_on_post}'
         query = urllib.parse.parse_qsl(
             qs, self.keep_blank_values, self.strict_parsing,
             encoding=self.encoding, errors=self.errors,
@@ -705,8 +675,9 @@ class FieldStorage:
         klass = self.FieldStorageClass or self.__class__
         first_line = self.fp.readline() # bytes
         if not isinstance(first_line, bytes):
-            raise ValueError("%s should return bytes, got %s" \
-                             % (self.fp, type(first_line).__name__))
+            raise ValueError(
+                f"{self.fp} should return bytes, got {type(first_line).__name__}"
+            )
         self.bytes_read += len(first_line)
 
         # Ensure that we consume the file until we've hit our inner boundary
@@ -775,8 +746,7 @@ class FieldStorage:
             while todo > 0:
                 data = self.fp.read(min(todo, self.bufsize)) # bytes
                 if not isinstance(data, bytes):
-                    raise ValueError("%s should return bytes, got %s"
-                                     % (self.fp, type(data).__name__))
+                    raise ValueError(f"{self.fp} should return bytes, got {type(data).__name__}")
                 self.bytes_read += len(data)
                 if not data:
                     self.done = -1
@@ -972,10 +942,9 @@ def print_exception(type=None, value=None, tb=None, limit=None):
     print("<H3>Traceback (most recent call last):</H3>")
     list = traceback.format_tb(tb, limit) + \
            traceback.format_exception_only(type, value)
-    print("<PRE>%s<B>%s</B></PRE>" % (
-        html.escape("".join(list[:-1])),
-        html.escape(list[-1]),
-        ))
+    print(
+        f'<PRE>{html.escape("".join(list[:-1]))}<B>{html.escape(list[-1])}</B></PRE>'
+    )
     del tb
 
 def print_environ(environ=os.environ):
@@ -998,10 +967,10 @@ def print_form(form):
         print("<P>No form fields.")
     print("<DL>")
     for key in keys:
-        print("<DT>" + html.escape(key) + ":", end=' ')
+        print(f"<DT>{html.escape(key)}:", end=' ')
         value = form[key]
-        print("<i>" + html.escape(repr(type(value))) + "</i>")
-        print("<DD>" + html.escape(repr(value)))
+        print(f"<i>{html.escape(repr(type(value)))}</i>")
+        print(f"<DD>{html.escape(repr(value))}")
     print("</DL>")
     print()
 

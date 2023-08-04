@@ -57,9 +57,7 @@ def main():
 
     args = sys.argv[1:]
     iptfile = args and args[0] or "Python/graminit.c"
-    if len(args) > 1: optfile = args[1]
-    else: optfile = "Lib/keyword.py"
-
+    optfile = args[1] if len(args) > 1 else "Lib/keyword.py"
     # load the output skeleton from the target, taking care to preserve its
     # newline convention.
     with open(optfile, newline='') as fp:
@@ -72,15 +70,14 @@ def main():
         lines = []
         for line in fp:
             if '{1, "' in line:
-                match = strprog.search(line)
-                if match:
-                    lines.append("        '" + match.group(1) + "'," + nl)
+                if match := strprog.search(line):
+                    lines.append(f"        '{match.group(1)}',{nl}")
     lines.sort()
 
     # insert the lines of keywords into the skeleton
     try:
-        start = format.index("#--start keywords--" + nl) + 1
-        end = format.index("#--end keywords--" + nl)
+        start = format.index(f"#--start keywords--{nl}") + 1
+        end = format.index(f"#--end keywords--{nl}")
         format[start:end] = lines
     except ValueError:
         sys.stderr.write("target does not contain format markers\n")

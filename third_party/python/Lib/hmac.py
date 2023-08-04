@@ -85,7 +85,7 @@ class HMAC:
 
     @property
     def name(self):
-        return "hmac-" + self.inner.name
+        return f"hmac-{self.inner.name}"
 
     def update(self, msg):
         """Update this hashing object with the string msg.

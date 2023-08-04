@@ -20,8 +20,7 @@ def what(file, h=None):
                 h = file.read(32)
                 file.seek(location)
         for tf in tests:
-            res = tf(h, f)
-            if res:
+            if res := tf(h, f):
                 return res
     finally:
         if f: f.close()
@@ -148,7 +147,7 @@ def testall(list, recursive, toplevel):
     import os
     for filename in list:
         if os.path.isdir(filename):
-            print(filename + '/:', end=' ')
+            print(f'{filename}/:', end=' ')
             if recursive or toplevel:
                 print('recursing down:')
                 import glob
@@ -157,7 +156,7 @@ def testall(list, recursive, toplevel):
             else:
                 print('*** directory (use -r) ***')
         else:
-            print(filename + ':', end=' ')
+            print(f'{filename}:', end=' ')
             sys.stdout.flush()
             try:
                 print(what(filename))

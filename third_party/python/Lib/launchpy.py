@@ -2,7 +2,7 @@ import sys
 from importlib import _bootstrap_external
 
 def run_module_as_main(mod_name):
-    path = "/zip/.python/%s.pyc" % (mod_name.replace(".", "/"))
+    path = f'/zip/.python/{mod_name.replace(".", "/")}.pyc'
     loader = _bootstrap_external.SourcelessFileLoader(mod_name, path)
     code = loader.get_code(mod_name)
     globs = sys.modules["__main__"].__dict__
