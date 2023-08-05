@@ -51,7 +51,7 @@ def dis(x=None, *, file=None):
         items = sorted(x.__dict__.items())
         for name, x1 in items:
             if isinstance(x1, _have_code):
-                print("Disassembly of %s:" % name, file=file)
+                print(f"Disassembly of {name}:", file=file)
                 try:
                     dis(x1, file=file)
                 except TypeError as msg:
@@ -64,8 +64,7 @@ def dis(x=None, *, file=None):
     elif isinstance(x, str):    # Source code
         _disassemble_str(x, file=file)
     else:
-        raise TypeError("don't know how to disassemble %s objects" %
-                        type(x).__name__)
+        raise TypeError(f"don't know how to disassemble {type(x).__name__} objects")
 
 def distb(tb=None, *, file=None):
     """Disassemble a traceback (default: last traceback)."""
@@ -119,42 +118,37 @@ def _get_code_object(x):
         x = _try_compile(x, "<disassembly>")
     if hasattr(x, 'co_code'):  # Code object
         return x
-    raise TypeError("don't know how to disassemble %s objects" %
-                    type(x).__name__)
+    raise TypeError(f"don't know how to disassemble {type(x).__name__} objects")
 
 def code_info(x):
     """Formatted details of methods, functions, or code."""
     return _format_code_info(_get_code_object(x))
 
 def _format_code_info(co):
-    lines = []
-    lines.append("Name:              %s" % co.co_name)
-    lines.append("Filename:          %s" % co.co_filename)
-    lines.append("Argument count:    %s" % co.co_argcount)
-    lines.append("Kw-only arguments: %s" % co.co_kwonlyargcount)
-    lines.append("Number of locals:  %s" % co.co_nlocals)
-    lines.append("Stack size:        %s" % co.co_stacksize)
-    lines.append("Flags:             %s" % pretty_flags(co.co_flags))
+    lines = [
+        f"Name:              {co.co_name}",
+        f"Filename:          {co.co_filename}",
+        f"Argument count:    {co.co_argcount}",
+        f"Kw-only arguments: {co.co_kwonlyargcount}",
+        f"Number of locals:  {co.co_nlocals}",
+        f"Stack size:        {co.co_stacksize}",
+        f"Flags:             {pretty_flags(co.co_flags)}",
+    ]
     if co.co_consts:
         lines.append("Constants:")
-        for i_c in enumerate(co.co_consts):
-            lines.append("%4d: %r" % i_c)
+        lines.extend("%4d: %r" % i_c for i_c in enumerate(co.co_consts))
     if co.co_names:
         lines.append("Names:")
-        for i_n in enumerate(co.co_names):
-            lines.append("%4d: %s" % i_n)
+        lines.extend("%4d: %s" % i_n for i_n in enumerate(co.co_names))
     if co.co_varnames:
         lines.append("Variable names:")
-        for i_n in enumerate(co.co_varnames):
-            lines.append("%4d: %s" % i_n)
+        lines.extend("%4d: %s" % i_n for i_n in enumerate(co.co_varnames))
     if co.co_freevars:
         lines.append("Free variables:")
-        for i_n in enumerate(co.co_freevars):
-            lines.append("%4d: %s" % i_n)
+        lines.extend("%4d: %s" % i_n for i_n in enumerate(co.co_freevars))
     if co.co_cellvars:
         lines.append("Cell variables:")
-        for i_n in enumerate(co.co_cellvars):
-            lines.append("%4d: %s" % i_n)
+        lines.extend("%4d: %s" % i_n for i_n in enumerate(co.co_cellvars))
     return "\n".join(lines)
 
 def show_code(co, *, file=None):
@@ -214,16 +208,13 @@ class Instruction(_Instruction):
             fields.append('>>')
         else:
             fields.append('  ')
-        # Column: Instruction offset from start of code sequence
-        fields.append(repr(self.offset).rjust(4))
-        # Column: Opcode name
-        fields.append(self.opname.ljust(20))
+        fields.extend((repr(self.offset).rjust(4), self.opname.ljust(20)))
         # Column: Opcode argument
         if self.arg is not None:
             fields.append(repr(self.arg).rjust(5))
             # Column: Opcode argument details
             if self.argrepr:
-                fields.append('(' + self.argrepr + ')')
+                fields.append(f'({self.argrepr})')
         return ' '.join(fields).rstrip()
 
 
@@ -241,10 +232,7 @@ def get_instructions(x, *, first_line=None):
     co = _get_code_object(x)
     cell_names = co.co_cellvars + co.co_freevars
     linestarts = dict(findlinestarts(co))
-    if first_line is not None:
-        line_offset = first_line - co.co_firstlineno
-    else:
-        line_offset = 0
+    line_offset = first_line - co.co_firstlineno if first_line is not None else 0
     return _get_instructions_bytes(co.co_code, co.co_varnames, co.co_names,
                                    co.co_consts, cell_names, linestarts,
                                    line_offset)
@@ -309,7 +297,7 @@ def _get_instructions_bytes(code, varnames=None, names=None, constants=None,
                 argval, argrepr = _get_name_info(arg, names)
             elif op in hasjrel:
                 argval = offset + 2 + arg
-                argrepr = "to " + repr(argval)
+                argrepr = f"to {repr(argval)}"
             elif op in haslocal:
                 argval, argrepr = _get_name_info(arg, varnames)
             elif op in hascompare:
@@ -395,7 +383,7 @@ def findlinestarts(code):
     Generate pairs (offset, lineno) as described in Python/compile.c.
 
     """
-    byte_increments = code.co_lnotab[0::2]
+    byte_increments = code.co_lnotab[::2]
     line_increments = code.co_lnotab[1::2]
 
     lastlineno = None
@@ -460,10 +448,7 @@ class Bytecode:
     def dis(self):
         """Return a formatted view of the bytecode operations."""
         co = self.codeobj
-        if self.current_offset is not None:
-            offset = self.current_offset
-        else:
-            offset = -1
+        offset = self.current_offset if self.current_offset is not None else -1
         with io.StringIO() as output:
             _disassemble_bytes(co.co_code, varnames=co.co_varnames,
                                names=co.co_names, constants=co.co_consts,

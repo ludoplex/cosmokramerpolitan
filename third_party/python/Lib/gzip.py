@@ -80,15 +80,14 @@ class _PaddedFile:
     def read(self, size):
         if self._read is None:
             return self.file.read(size)
+        read = self._read
         if self._read + size <= self._length:
-            read = self._read
             self._read += size
             return self._buffer[read:self._read]
         else:
-            read = self._read
             self._read = None
             return self._buffer[read:] + \
-                   self.file.read(size-self._length+read)
+                       self.file.read(size-self._length+read)
 
     def prepend(self, prepend=b''):
         if self._read is None:
@@ -198,7 +197,7 @@ class GzipFile(_compression.BaseStream):
         import warnings
         warnings.warn("use the name attribute", DeprecationWarning, 2)
         if self.mode == WRITE and self.name[-3:] != ".gz":
-            return self.name + ".gz"
+            return f"{self.name}.gz"
         return self.name
 
     @property
@@ -208,7 +207,7 @@ class GzipFile(_compression.BaseStream):
 
     def __repr__(self):
         s = repr(self.fileobj)
-        return '<gzip ' + s[1:-1] + ' ' + hex(id(self)) + '>'
+        return f'<gzip {s[1:-1]} {hex(id(self))}>'
 
     def _init_write(self, filename):
         self.name = filename
@@ -231,9 +230,7 @@ class GzipFile(_compression.BaseStream):
                 fname = fname[:-3]
         except UnicodeEncodeError:
             fname = b''
-        flags = 0
-        if fname:
-            flags = FNAME
+        flags = FNAME if fname else 0
         self.fileobj.write(chr(flags).encode('latin-1'))
         mtime = self._write_mtime
         if mtime is None:
@@ -313,8 +310,7 @@ class GzipFile(_compression.BaseStream):
             elif self.mode == READ:
                 self._buffer.close()
         finally:
-            myfileobj = self.myfileobj
-            if myfileobj:
+            if myfileobj := self.myfileobj:
                 self.myfileobj = None
                 myfileobj.close()
 
@@ -360,7 +356,7 @@ class GzipFile(_compression.BaseStream):
                 raise OSError('Negative seek in write mode')
             count = offset - self.offset
             chunk = b'\0' * 1024
-            for i in range(count // 1024):
+            for _ in range(count // 1024):
                 self.write(chunk)
             self.write(b'\0' * (count % 1024))
         elif self.mode == READ:
@@ -395,11 +391,11 @@ class _GzipReader(_compression.DecompressReader):
 
         data = self._fp.read(n)
         while len(data) < n:
-            b = self._fp.read(n - len(data))
-            if not b:
+            if b := self._fp.read(n - len(data)):
+                data += b
+            else:
                 raise EOFError("Compressed file ended before the "
                                "end-of-stream marker was reached")
-            data += b
         return data
 
     def _read_gzip_header(self):
@@ -497,8 +493,7 @@ class _GzipReader(_compression.DecompressReader):
         # stored is the true file size mod 2**32.
         crc32, isize = struct.unpack("<II", self._read_exact(8))
         if crc32 != self._crc:
-            raise OSError("CRC check failed %s != %s" % (hex(crc32),
-                                                         hex(self._crc)))
+            raise OSError(f"CRC check failed {hex(crc32)} != {hex(self._crc)}")
         elif isize != (self._stream_size & 0xffffffff):
             raise OSError("Incorrect length of data produced")
 
@@ -553,18 +548,17 @@ def _test():
                     continue
                 f = open(arg, "rb")
                 g = builtins.open(arg[:-3], "wb")
+        elif arg == "-":
+            f = sys.stdin.buffer
+            g = GzipFile(filename="", mode="wb", fileobj=sys.stdout.buffer)
         else:
-            if arg == "-":
-                f = sys.stdin.buffer
-                g = GzipFile(filename="", mode="wb", fileobj=sys.stdout.buffer)
-            else:
-                f = builtins.open(arg, "rb")
-                g = open(arg + ".gz", "wb")
+            f = builtins.open(arg, "rb")
+            g = open(f"{arg}.gz", "wb")
         while True:
-            chunk = f.read(1024)
-            if not chunk:
+            if chunk := f.read(1024):
+                g.write(chunk)
+            else:
                 break
-            g.write(chunk)
         if g is not sys.stdout.buffer:
             g.close()
         if f is not sys.stdin.buffer:

@@ -40,13 +40,13 @@ def _iglob(pathname, recursive, dironly):
     dirname, basename = os.path.split(pathname)
     if not has_magic(pathname):
         assert not dironly
-        if basename:
-            if os.path.lexists(pathname):
-                yield pathname
-        else:
-            # Patterns ending with a slash should match only directories
-            if os.path.isdir(dirname):
-                yield pathname
+        if (
+            basename
+            and os.path.lexists(pathname)
+            or not basename
+            and os.path.isdir(dirname)
+        ):
+            yield pathname
         return
     if not dirname:
         if recursive and _isrecursive(basename):
@@ -62,10 +62,7 @@ def _iglob(pathname, recursive, dironly):
     else:
         dirs = [dirname]
     if has_magic(basename):
-        if recursive and _isrecursive(basename):
-            glob_in_dir = _glob2
-        else:
-            glob_in_dir = _glob1
+        glob_in_dir = _glob2 if recursive and _isrecursive(basename) else _glob1
     else:
         glob_in_dir = _glob0
     for dirname in dirs:
@@ -83,14 +80,11 @@ def _glob1(dirname, pattern, dironly):
     return fnmatch.filter(names, pattern)
 
 def _glob0(dirname, basename, dironly):
-    if not basename:
-        # `os.path.split()` returns an empty basename for paths ending with a
-        # directory separator.  'q*x/' should match only directories.
-        if os.path.isdir(dirname):
-            return [basename]
-    else:
+    if basename:
         if os.path.lexists(os.path.join(dirname, basename)):
             return [basename]
+    elif os.path.isdir(dirname):
+        return [basename]
     return []
 
 # Following functions are not public but can be used by third-party code.
@@ -153,10 +147,7 @@ def _ishidden(path):
     return path[0] in ('.', b'.'[0])
 
 def _isrecursive(pattern):
-    if isinstance(pattern, bytes):
-        return pattern == b'**'
-    else:
-        return pattern == '**'
+    return pattern == b'**' if isinstance(pattern, bytes) else pattern == '**'
 
 def escape(pathname):
     """Escape all special characters.

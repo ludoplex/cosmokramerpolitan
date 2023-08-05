@@ -273,10 +273,7 @@ class TextCalendar(Calendar):
         """
         Returns a formatted day.
         """
-        if day == 0:
-            s = ''
-        else:
-            s = '%2i' % day             # right-align single-digit days
+        s = '' if day == 0 else '%2i' % day
         return s.center(width)
 
     def formatweek(self, theweek, width):
@@ -289,10 +286,7 @@ class TextCalendar(Calendar):
         """
         Returns a formatted week day name.
         """
-        if width >= 9:
-            names = day_name
-        else:
-            names = day_abbr
+        names = day_name if width >= 9 else day_abbr
         return names[day][:width].center(width)
 
     def formatweekheader(self, width):
@@ -353,7 +347,7 @@ class TextCalendar(Calendar):
                      for k in months)
             a(formatstring(names, colwidth, c).rstrip())
             a('\n'*l)
-            headers = (header for k in months)
+            headers = (header for _ in months)
             a(formatstring(headers, colwidth, c).rstrip())
             a('\n'*l)
             # max number of weeks for this row
@@ -396,30 +390,30 @@ class HTMLCalendar(Calendar):
         Return a complete week as a table row.
         """
         s = ''.join(self.formatday(d, wd) for (d, wd) in theweek)
-        return '<tr>%s</tr>' % s
+        return f'<tr>{s}</tr>'
 
     def formatweekday(self, day):
         """
         Return a weekday name as a table header.
         """
-        return '<th class="%s">%s</th>' % (self.cssclasses[day], day_abbr[day])
+        return f'<th class="{self.cssclasses[day]}">{day_abbr[day]}</th>'
 
     def formatweekheader(self):
         """
         Return a header for a week as a table row.
         """
         s = ''.join(self.formatweekday(i) for i in self.iterweekdays())
-        return '<tr>%s</tr>' % s
+        return f'<tr>{s}</tr>'
 
     def formatmonthname(self, theyear, themonth, withyear=True):
         """
         Return a month name as a table row.
         """
         if withyear:
-            s = '%s %s' % (month_name[themonth], theyear)
+            s = f'{month_name[themonth]} {theyear}'
         else:
-            s = '%s' % month_name[themonth]
-        return '<tr><th colspan="7" class="month">%s</th></tr>' % s
+            s = f'{month_name[themonth]}'
+        return f'<tr><th colspan="7" class="month">{s}</th></tr>'
 
     def formatmonth(self, theyear, themonth, withyear=True):
         """
@@ -514,10 +508,7 @@ class LocaleTextCalendar(TextCalendar):
 
     def formatweekday(self, day, width):
         with different_locale(self.locale):
-            if width >= 9:
-                names = day_name
-            else:
-                names = day_abbr
+            names = day_name if width >= 9 else day_abbr
             name = names[day]
             return name[:width].center(width)
 
@@ -545,14 +536,14 @@ class LocaleHTMLCalendar(HTMLCalendar):
     def formatweekday(self, day):
         with different_locale(self.locale):
             s = day_abbr[day]
-            return '<th class="%s">%s</th>' % (self.cssclasses[day], s)
+            return f'<th class="{self.cssclasses[day]}">{s}</th>'
 
     def formatmonthname(self, theyear, themonth, withyear=True):
         with different_locale(self.locale):
             s = month_name[themonth]
             if withyear:
-                s = '%s %s' % (s, theyear)
-            return '<tr><th colspan="7" class="month">%s</th></tr>' % s
+                s = f'{s} {theyear}'
+            return f'<tr><th colspan="7" class="month">{s}</th></tr>'
 
 
 # Support for old module level interface
@@ -601,8 +592,7 @@ def timegm(tuple):
     days = datetime.date(year, month, 1).toordinal() - _EPOCH_ORD + day - 1
     hours = days*24 + hour
     minutes = hours*60 + minute
-    seconds = minutes*60 + second
-    return seconds
+    return minutes*60 + second
 
 
 def main(args):
@@ -676,10 +666,7 @@ def main(args):
     locale = options.locale, options.encoding
 
     if options.type == "html":
-        if options.locale:
-            cal = LocaleHTMLCalendar(locale=locale)
-        else:
-            cal = HTMLCalendar()
+        cal = LocaleHTMLCalendar(locale=locale) if options.locale else HTMLCalendar()
         encoding = options.encoding
         if encoding is None:
             encoding = sys.getdefaultencoding()
@@ -693,10 +680,7 @@ def main(args):
             parser.error("incorrect number of arguments")
             sys.exit(1)
     else:
-        if options.locale:
-            cal = LocaleTextCalendar(locale=locale)
-        else:
-            cal = TextCalendar()
+        cal = LocaleTextCalendar(locale=locale) if options.locale else TextCalendar()
         optdict = dict(w=options.width, l=options.lines)
         if options.month is None:
             optdict["c"] = options.spacing

@@ -173,9 +173,7 @@ class AbstractFormatter:
                 s = s + ones[index]*x
                 label = s + label
             index = index + 1
-        if case == 'I':
-            return label.upper()
-        return label
+        return label.upper() if case == 'I' else label
 
     def add_flowing_data(self, data):
         if not data: return
@@ -186,14 +184,13 @@ class AbstractFormatter:
             return
         elif prespace or self.softspace:
             if not data:
-                if not self.nospace:
-                    self.softspace = 1
-                    self.parskip = 0
+                self.softspace = 1
+                self.parskip = 0
                 return
             if not self.nospace:
-                data = ' ' + data
+                data = f' {data}'
         self.hard_break = self.nospace = self.para_end = \
-                          self.parskip = self.have_label = 0
+                              self.parskip = self.have_label = 0
         self.softspace = postspace
         self.writer.send_flowing_data(data)
 
@@ -250,10 +247,7 @@ class AbstractFormatter:
     def pop_font(self):
         if self.font_stack:
             del self.font_stack[-1]
-        if self.font_stack:
-            font = self.font_stack[-1]
-        else:
-            font = None
+        font = self.font_stack[-1] if self.font_stack else None
         self.writer.new_font(font)
 
     def push_margin(self, margin):
@@ -267,10 +261,7 @@ class AbstractFormatter:
         if self.margin_stack:
             del self.margin_stack[-1]
         fstack = [m for m in self.margin_stack if m]
-        if fstack:
-            margin = fstack[-1]
-        else:
-            margin = None
+        margin = fstack[-1] if fstack else None
         self.writer.new_margin(margin, len(fstack))
 
     def set_spacing(self, spacing):

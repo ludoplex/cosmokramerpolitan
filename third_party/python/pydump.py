@@ -12,14 +12,14 @@ def show_file(fname):
     filesz = f.read(4)
     modtime = time.asctime(time.localtime(struct.unpack('=L', moddate)[0]))
     filesz = struct.unpack('=L', filesz)
-    print("magic %s" % (binascii.hexlify(magic)))
-    print("moddate %s (%s)" % (binascii.hexlify(moddate), modtime))
+    print(f"magic {binascii.hexlify(magic)}")
+    print(f"moddate {binascii.hexlify(moddate)} ({modtime})")
     print("files sz %d" % filesz)
     code = marshal.load(f)
     show_code(code)
 
 def show_code(code, indent=''):
-    print("%scode" % indent)
+    print(f"{indent}code")
     indent += '   '
     print("%sargcount %d" % (indent, code.co_argcount))
     print("%snlocals %d" % (indent, code.co_nlocals))
@@ -27,10 +27,10 @@ def show_code(code, indent=''):
     print("%sflags %04x" % (indent, code.co_flags))
     show_hex("code", code.co_code, indent=indent)
     dis.disassemble(code)
-    print("%sconsts" % indent)
+    print(f"{indent}consts")
     for const in code.co_consts:
         if type(const) == types.CodeType:
-            show_code(const, indent+'   ')
+            show_code(const, f'{indent}   ')
         else:
             print("   %s%r" % (indent, const))
     print("%snames %r" % (indent, code.co_names))
@@ -45,10 +45,10 @@ def show_code(code, indent=''):
 def show_hex(label, h, indent):
     h = binascii.hexlify(h)
     if len(h) < 60:
-        print("%s%s %s" % (indent, label, h))
+        print(f"{indent}{label} {h}")
     else:
-        print("%s%s" % (indent, label))
+        print(f"{indent}{label}")
         for i in range(0, len(h), 60):
-            print("%s   %s" % (indent, h[i:i+60]))
+            print(f"{indent}   {h[i:i + 60]}")
 
 show_file(sys.argv[1])

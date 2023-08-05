@@ -116,12 +116,12 @@ def __get_builtin_constructor(name):
     constructor = cache.get(name)
     if constructor is not None:
         return constructor
-    raise ValueError('unsupported hash type ' + name)
+    raise ValueError(f'unsupported hash type {name}')
 
 
 def __get_mbedtls_constructor(name):
     try:
-        f = getattr(_hashlib, 'mbedtls_' + name)
+        f = getattr(_hashlib, f'mbedtls_{name}')
         # Allow the C module to raise ValueError.  The function will be
         # defined but the hash not actually available thanks to Mbedtls.
         f()

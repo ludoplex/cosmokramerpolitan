@@ -16,7 +16,7 @@ class _Method(_namedtuple('_Method', 'name ident salt_chars total_size')):
     legacy 2-character crypt method."""
 
     def __repr__(self):
-        return '<crypt.METHOD_{}>'.format(self.name)
+        return f'<crypt.METHOD_{self.name}>'
 
 
 def mksalt(method=None):
@@ -27,9 +27,9 @@ def mksalt(method=None):
     """
     if method is None:
         method = methods[0]
-    s = '${}$'.format(method.ident) if method.ident else ''
-    s += ''.join(_sr.choice(_saltchars) for char in range(method.salt_chars))
-    return s
+    return (f'${method.ident}$' if method.ident else '') + ''.join(
+        _sr.choice(_saltchars) for _ in range(method.salt_chars)
+    )
 
 
 def crypt(word, salt=None):

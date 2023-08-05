@@ -141,21 +141,20 @@ class _HackedGetData:
 
     def get_data(self, path):
         """Gross hack to contort loader to deal w/ load_*()'s bad API."""
-        if self.file and path == self.path:
-            if not self.file.closed:
-                file = self.file
-            else:
-                self.file = file = open(self.path, 'r')
-
-            with file:
-                # Technically should be returning bytes, but
-                # SourceLoader.get_code() just passed what is returned to
-                # compile() which can handle str. And converting to bytes would
-                # require figuring out the encoding to decode to and
-                # tokenize.detect_encoding() only accepts bytes.
-                return file.read()
-        else:
+        if not self.file or path != self.path:
             return super().get_data(path)
+        if not self.file.closed:
+            file = self.file
+        else:
+            self.file = file = open(self.path, 'r')
+
+        with file:
+            # Technically should be returning bytes, but
+            # SourceLoader.get_code() just passed what is returned to
+            # compile() which can handle str. And converting to bytes would
+            # require figuring out the encoding to decode to and
+            # tokenize.detect_encoding() only accepts bytes.
+            return file.read()
 
 
 class _LoadSourceCompatibility(_HackedGetData, machinery.SourceFileLoader):
@@ -166,10 +165,7 @@ class _LoadSourceCompatibility(_HackedGetData, machinery.SourceFileLoader):
 def load_source(name, pathname, file=None):
     loader = _LoadSourceCompatibility(name, pathname, file)
     spec = util.spec_from_file_location(name, pathname, loader=loader)
-    if name in sys.modules:
-        module = _exec(spec, sys.modules[name])
-    else:
-        module = _load(spec)
+    module = _exec(spec, sys.modules[name]) if name in sys.modules else _load(spec)
     # To allow reloading to potentially work, use a non-hacked loader which
     # won't rely on a now-closed file object.
     module.__loader__ = machinery.SourceFileLoader(name, pathname)
@@ -186,10 +182,7 @@ def load_compiled(name, pathname, file=None):
     """**DEPRECATED**"""
     loader = _LoadCompiledCompatibility(name, pathname, file)
     spec = util.spec_from_file_location(name, pathname, loader=loader)
-    if name in sys.modules:
-        module = _exec(spec, sys.modules[name])
-    else:
-        module = _load(spec)
+    module = _exec(spec, sys.modules[name]) if name in sys.modules else _load(spec)
     # To allow reloading to potentially work, use a non-hacked loader which
     # won't rely on a now-closed file object.
     module.__loader__ = SourcelessFileLoader(name, pathname)
@@ -203,7 +196,7 @@ def load_package(name, path):
         extensions = (machinery.SOURCE_SUFFIXES[:] +
                       machinery.BYTECODE_SUFFIXES[:])
         for extension in extensions:
-            init_path = os.path.join(path, '__init__' + extension)
+            init_path = os.path.join(path, f'__init__{extension}')
             if os.path.exists(init_path):
                 path = init_path
                 break
@@ -211,10 +204,7 @@ def load_package(name, path):
             raise ValueError('{!r} is not a package'.format(path))
     spec = util.spec_from_file_location(name, path,
                                         submodule_search_locations=[])
-    if name in sys.modules:
-        return _exec(spec, sys.modules[name])
-    else:
-        return _load(spec)
+    return _exec(spec, sys.modules[name]) if name in sys.modules else _load(spec)
 
 
 def load_module(name, file, filename, details):
@@ -229,18 +219,17 @@ def load_module(name, file, filename, details):
     if mode and (not mode.startswith(('r', 'U')) or '+' in mode):
         raise ValueError('invalid file open mode {!r}'.format(mode))
     elif file is None and type_ in {PY_SOURCE, PY_COMPILED}:
-        msg = 'file object required for import (type code {})'.format(type_)
+        msg = f'file object required for import (type code {type_})'
         raise ValueError(msg)
     elif type_ == PY_SOURCE:
         return load_source(name, filename, file)
     elif type_ == PY_COMPILED:
         return load_compiled(name, filename, file)
     elif type_ == C_EXTENSION and load_dynamic is not None:
-        if file is None:
-            with open(filename, 'rb') as opened_file:
-                return load_dynamic(name, filename, opened_file)
-        else:
+        if file is not None:
             return load_dynamic(name, filename, file)
+        with open(filename, 'rb') as opened_file:
+            return load_dynamic(name, filename, opened_file)
     elif type_ == PKG_DIRECTORY:
         return load_package(name, filename)
     elif type_ == C_BUILTIN:
@@ -248,7 +237,7 @@ def load_module(name, file, filename, details):
     elif type_ == PY_FROZEN:
         return init_frozen(name)
     else:
-        msg =  "Don't know how to import {} (type code {})".format(name, type_)
+        msg = f"Don't know how to import {name} (type code {type_})"
         raise ImportError(msg, name=name)
 
 
@@ -264,11 +253,10 @@ def find_module(name, path=None):
 
     """
     if not isinstance(name, str):
-        raise TypeError("'name' must be a str, not {}".format(type(name)))
+        raise TypeError(f"'name' must be a str, not {type(name)}")
     elif not isinstance(path, (type(None), list)):
         # Backwards-compatibility
-        raise RuntimeError("'path' must be None or a list, "
-                           "not {}".format(type(path)))
+        raise RuntimeError(f"'path' must be None or a list, not {type(path)}")
 
     if path is None:
         if is_builtin(name):
@@ -281,7 +269,7 @@ def find_module(name, path=None):
     for entry in path:
         package_directory = os.path.join(entry, name)
         for suffix in ['.py', machinery.BYTECODE_SUFFIXES[0]]:
-            package_file_name = '__init__' + suffix
+            package_file_name = f'__init__{suffix}'
             file_path = os.path.join(package_directory, package_file_name)
             if os.path.isfile(file_path):
                 return None, package_directory, ('', '', PKG_DIRECTORY)
